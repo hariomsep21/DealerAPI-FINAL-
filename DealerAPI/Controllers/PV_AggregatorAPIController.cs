@@ -67,6 +67,8 @@ namespace DealerAPI.Controllers
         {
             try
             {
+                int lastUserId = _db.LastUsetbl.OrderByDescending(u => u.ActiveId).FirstOrDefault()?.UserValue ?? 0;
+
                 if (pv_aggregatorDto == null)
                 {
                     return BadRequest("PV_AggregatorDTO is null");
@@ -78,6 +80,7 @@ namespace DealerAPI.Controllers
                 //     return StatusCode(500, "Item with the same Id already exists");
                 // }
 
+                pv_aggregatorDto.UserInfoId = lastUserId;
                 var pvAggregatorModel = _mapper.Map<PV_Aggregator>(pv_aggregatorDto);
 
                 _db.PV_Aggregatorstbl.Add(pvAggregatorModel);
