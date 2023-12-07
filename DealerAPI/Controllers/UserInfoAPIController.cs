@@ -96,7 +96,7 @@ namespace DealerAPI.Controllers
                     // Update existing user values
                     existingUser.UserName = UserInfoModel.UserName; // Replace with actual property names
                     existingUser.UserEmail = UserInfoModel.UserEmail; // Replace with actual property names
-
+                    existingUser.StateId = UserInfoModel.StateId;
                     existingUser.StatusId = 1;// Update other properties as needed
 
                     _db.SaveChanges();
@@ -151,7 +151,25 @@ namespace DealerAPI.Controllers
                 return StatusCode(500, "Internal Server Error");
             }
         }
+        [HttpGet("State")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<ActionResult<IEnumerable<StateDTO>>> GetState()
+        {
+            try
+            {
 
+
+                var filter = await _db.Statetbl.ToListAsync();
+                return Ok(filter);
+            }
+            catch (Exception ex)
+            {
+
+                return StatusCode(500, "Internal Server Error");
+            }
+        }
 
     }
 }
