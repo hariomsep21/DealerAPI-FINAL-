@@ -69,7 +69,7 @@ namespace DealerAPI.Controllers
 
 
 
-        [HttpPost]
+        [HttpPost("Post")]
         [ProducesResponseType(200)]
         [ProducesResponseType(400)]
         [ProducesResponseType(404)]
@@ -79,31 +79,47 @@ namespace DealerAPI.Controllers
         {
             try
             {
+                int lastUserId = _db.LastUsetbl.OrderByDescending(u => u.ActiveId).FirstOrDefault()?.UserValue ?? 0;
+
                 if (userInfoDTO == null)
                 {
                     return BadRequest("userInfoDTO is null");
                 }
 
-                // Optional: Validation if an item with the same Id already exists
-                // if (_db.PV_Aggregatorstbl.Any(v => v.Id == pv_aggregatorDto.Id))
-                // {
-                //     return StatusCode(500, "Item with the same Id already exists");
-                // }
-
                 var UserInfoModel = _mapper.Map<UserInfo>(userInfoDTO);
 
-                _db.Userstbl.Add(UserInfoModel);
-                _db.SaveChanges();
+                // Check if a user with the same id already exists
+                var existingUser = _db.Userstbl.FirstOrDefault(u => u.Id == lastUserId);
 
-                var UserInfoDtoModel = _mapper.Map<UserInfoDTO>(UserInfoModel);
+                if (existingUser != null)
+                {
+                    // Update existing user values
+                    existingUser.UserName = UserInfoModel.UserName; // Replace with actual property names
+                    existingUser.UserEmail = UserInfoModel.UserEmail; // Replace with actual property names
 
-                return Ok(UserInfoDtoModel);
+                    existingUser.StatusId = 1;// Update other properties as needed
+
+                    _db.SaveChanges();
+
+                    var updatedUserInfoDtoModel = _mapper.Map<UserInfoDTO>(existingUser);
+                    return Ok(updatedUserInfoDtoModel);
+                }
+                else
+                {
+                    // If no user with the specified id exists, add a new user
+                    _db.Userstbl.Add(UserInfoModel);
+                    _db.SaveChanges();
+
+                    var newUserInfoDtoModel = _mapper.Map<UserInfoDTO>(UserInfoModel);
+                    return Ok(newUserInfoDtoModel);
+                }
             }
             catch (Exception ex)
             {
                 // Log the exception or handle it as appropriate for your application
                 return StatusCode(500, "Internal Server Error");
             }
+
         }
 
         [HttpGet("{id}")]

@@ -35,9 +35,9 @@ namespace DealerAPI.Controllers
             _config = configuration;
         }
 
-     
+
         [HttpGet]
-        [Authorize]
+
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -98,7 +98,7 @@ namespace DealerAPI.Controllers
 
                 var userInfo = _db.Userstbl.FirstOrDefault(u => u.PhnId == existingUserPhone.PhoneId);
 
-                if (userInfo == null )
+                if (userInfo == null)
                 {
 
                     return NotFound($"User information not found for phone number '{userPhoneDTO.PhoneNumber}'");
@@ -115,6 +115,8 @@ namespace DealerAPI.Controllers
                 _db.LastUsetbl.Add(activeUserId);
                 _db.SaveChanges();
 
+
+
                 var token = GenerateJwtToken(existingUserPhone, userInfo);
 
                 return Ok(token);
@@ -122,7 +124,7 @@ namespace DealerAPI.Controllers
             catch (Exception ex)
             {
                 // Log the exception details
-               
+
                 return StatusCode(StatusCodes.Status500InternalServerError, $"Internal Server Error: {ex.Message}");
             }
         }
@@ -137,7 +139,7 @@ namespace DealerAPI.Controllers
         }
 
 
-        private string GenerateJwtToken(UserPhone userPhone, UserInfo userInfo )
+        private string GenerateJwtToken(UserPhone userPhone, UserInfo userInfo)
         {
             var userIdClaim = userInfo?.PhnId == userPhone.PhoneId
                 ? new Claim(ClaimTypes.NameIdentifier, userInfo.Id.ToString())

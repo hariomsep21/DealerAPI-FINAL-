@@ -12,24 +12,24 @@ namespace DealerAPI.Models
 
         [Required]
         [MaxLength(15)]
-        public string UserName { get; set; }
+        public string UserName { get; set; } = string.Empty;
 
         [EmailAddress]
         [RegularExpression(@"^[\w-]+@gmail\.(com|in)$", ErrorMessage = "Email must end with @gmail.com or @gmail.in")]
-        public string UserEmail { get; set; }
+        public string UserEmail { get; set; } = string.Empty;
 
         [ForeignKey("Status")]
-        public int StatusId { get; set; }
+        public int? StatusId { get; set; }
 
         [MaxLength(4)]
-        public string OTP {  get; set; }
+        public string? OTP { get; set; }
 
         [ForeignKey("State")]
-        public int StateId { get; set; }
-      
+        public int? StateId { get; set; }
+
 
         [ForeignKey("UserPhones")]
-        public int PhnId { get; set; }
+        public int? PhnId { get; set; }
 
 
 
