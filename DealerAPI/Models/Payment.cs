@@ -43,6 +43,7 @@ namespace Dealer.Model
         public decimal? Facility_Availed { get; set; }
         public decimal? Invoice_Charges { get; set; }
 
+        public int Userid => Car.UserId;
         public int BankId { get; set; }
         [ForeignKey("BankId")]
         public virtual BankDetail BankDetail{ get; set; }

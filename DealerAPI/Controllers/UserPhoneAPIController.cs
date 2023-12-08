@@ -111,6 +111,7 @@ namespace DealerAPI.Controllers
                                 // Set other properties as needed
                             };
 
+                            newUser.StateId = 1;
                             _db.Userstbl.Add(newUser);
                             _db.SaveChanges();
 

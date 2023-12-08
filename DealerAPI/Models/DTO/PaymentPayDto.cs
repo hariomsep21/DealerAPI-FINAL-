@@ -6,6 +6,7 @@ namespace Dealer.Model.DTO
     public class PaymentPayDto: PaymentDto
     {
         public DateTime DueDate { get; set; }
+        public int UserId { get; set; }
         public DateTime StartDate { get; set; }
         public decimal? AmountPaid { get; set; }
         public decimal? ProcessingCharges { get; set; }
