@@ -16,7 +16,7 @@ namespace DealerAPI.Models.DTO
         public string UserEmail { get; set; }
 
      public string otp {  get; set; }
-        public int StateId { get; set; }
+        public int? StateId { get; set; }
 
         public int PhnId { get; set; }
 

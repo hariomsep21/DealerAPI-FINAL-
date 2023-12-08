@@ -36,6 +36,7 @@ namespace MyAppAPI.Controllers
                 var stockAuditDto = filterUpcomingAudit.Select(a => new StockAuditDto
 
                 {
+                    
                     CarId = a.CarId,
                     CarName = a.Car.CarName,
                     Variant = a.Car.Variant,

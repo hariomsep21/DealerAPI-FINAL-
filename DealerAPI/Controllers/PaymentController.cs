@@ -30,22 +30,26 @@ namespace MyAppAPI.Controllers
         {
             try
             {
+                int lastUserId = _db.LastUsetbl.OrderByDescending(u => u.ActiveId).FirstOrDefault()?.UserValue ?? 0;
+
                 _logger.LogInformation("Getting Due Payments");
 
                 var currentDate = DateTime.UtcNow;
 
                 var duePayments = await _db.Payment
                     .Include(p => p.Car)
-                                        .Include(p => p.BankDetail)
+                    .Include(p => p.BankDetail)
                     .ToListAsync(); // Retrieve all payments from the database
 
                 var filteredDuePayments = duePayments
                     .Where(p => DateTime.Compare(currentDate.Date ,p.DueDate.Date) < 0 &&
                                 (p.DueDate.Date-currentDate.Date).Days <= 60)
+                    .Where(p=>p.Userid == lastUserId)
                     .ToList(); // Filter the payments locally
 
                 var paymentDtos = filteredDuePayments.Select(p => new PaymentPayDto
                 {
+
                     Id = p.Id,
                     Amount_Due = p.Amount_Due,
                     CarId = p.CarId,
@@ -57,10 +61,12 @@ namespace MyAppAPI.Controllers
                     StartDate = p.StartDate,
                     AmountPaid = p.AmountPaid,
                     ProcessingCharges = p.ProcessingCharges,
-                    Name =              p.Name,
+                    Name = p.Name,
                     AccountNumber = p.AccountNumber,
                     BankName = p.BankName,
-                    IFSCCode = p.IFSCCode
+                    IFSCCode = p.IFSCCode,
+                    UserId = p.Userid
+
 
                 }).ToList();
 
@@ -80,6 +86,8 @@ namespace MyAppAPI.Controllers
         {
             try
             {
+                int lastUserId = _db.LastUsetbl.OrderByDescending(u => u.ActiveId).FirstOrDefault()?.UserValue ?? 0;
+
                 _logger.LogInformation("Getting Upcoming Payments");
 
                 var currentDate = DateTime.UtcNow;
@@ -92,6 +100,7 @@ namespace MyAppAPI.Controllers
                 var filteredDuePayments = upcomingPayments
                     .Where(p => DateTime.Compare(currentDate.Date ,p.DueDate.Date) < 0 &&
                                 (p.DueDate.Date-currentDate.Date).Days > 60)
+                    .Where(p=>p.Userid == lastUserId)
                     .ToList();
 
                 var paymentDtos = filteredDuePayments.Select(p => new PaymentPayDto
