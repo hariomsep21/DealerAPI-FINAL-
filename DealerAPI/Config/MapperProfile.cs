@@ -1,4 +1,5 @@
 ﻿using AutoMapper;
+using Dealer.Model;
 using DealerAPI.Models;
 using DealerAPI.Models.DTO;
 
@@ -27,7 +28,9 @@ namespace DealerAPI.Config
             CreateMap<UserInfo, UserInfoDTO>().ReverseMap();
             CreateMap<UserInfo, UserAccountDTO>().ReverseMap();
             CreateMap<LastUser, LastUserDTO>().ReverseMap();
-            CreateMap<Status, StatusDTO>().ReverseMap();  
+            CreateMap<Status, StatusDTO>().ReverseMap();
+            CreateMap<StockAudit, UploadPic_StockAuditDTO>().ReverseMap();
+            CreateMap<Payment, PaymentProofImgDTO>().ReverseMap();
         }
 
     }

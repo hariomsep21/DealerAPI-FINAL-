@@ -36,6 +36,7 @@ namespace Dealer.Model
 
         public string BankName => BankDetail.BankName;
 
+        public string PaymentProofImg {  get; set; }=string.Empty;
         public DateTime DueDate { get; set; }
         public DateTime StartDate { get; set; }
         public decimal? AmountPaid { get; set; }
