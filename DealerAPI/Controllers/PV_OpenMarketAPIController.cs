@@ -2,8 +2,10 @@
 using DealerAPI.Data;
 using DealerAPI.Models;
 using DealerAPI.Models.DTO;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 
 namespace DealerAPI.Controllers
 {
@@ -27,6 +29,7 @@ namespace DealerAPI.Controllers
 
 
         [HttpGet]
+        [Authorize]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -62,6 +65,7 @@ namespace DealerAPI.Controllers
 
 
         [HttpPost("Post")]
+        [Authorize]
         [ProducesResponseType(200)]
         [ProducesResponseType(400)]
         [ProducesResponseType(404)]
@@ -69,29 +73,34 @@ namespace DealerAPI.Controllers
 
         public ActionResult<PV_OpenMarketDTO> PostOpenMarketSupport(PV_OpenMarketDTO pV_openmarketDTO)
         {
-
             try
             {
-                int lastUserId = _db.LastUsetbl.OrderByDescending(u => u.ActiveId).FirstOrDefault()?.UserValue ?? 0;
                 if (pV_openmarketDTO == null)
                 {
-                    return BadRequest("pv_carDtoDTO is null");
+                    return BadRequest("PV_OpenMarketDTO is null");
                 }
 
-                // Optional: Validation if an item with the same Id already exists
-                //if (_db.PV_Aggregatorstbl.Any(v => v.Id == pv_aggregatorDto.Id))
-                //{
-                //    return StatusCode(500, "Item with the same Id already exists");
-                //}
-                pV_openmarketDTO.UserInfoId = lastUserId;
-                var pV_openmarketModel = _mapper.Map<PV_OpenMarket>(pV_openmarketDTO);
+                var userIdString = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
-                _db.PV_OpenMarketstbl.Add(pV_openmarketModel);
-                _db.SaveChanges();
+                if (int.TryParse(userIdString, out int userId))
+                {
+                    // Set UserId in the DTO before mapping to the entity
+                    pV_openmarketDTO.UserInfoId = userId;
 
-                var pV_openmarketDtoModel = _mapper.Map<PV_OpenMarketDTO>(pV_openmarketModel);
+                    var pV_openmarketModel = _mapper.Map<PV_OpenMarket>(pV_openmarketDTO);
 
-                return Ok(pV_openmarketDtoModel);
+                    _db.PV_OpenMarketstbl.Add(pV_openmarketModel);
+                    _db.SaveChanges();
+
+                    var pV_openmarketDtoModel = _mapper.Map<PV_OpenMarketDTO>(pV_openmarketModel);
+
+                    return Ok(pV_openmarketDtoModel);
+                }
+                else
+                {
+                    // Handle the case where the user ID from the claim cannot be parsed as an integer
+                    return BadRequest("Invalid user ID");
+                }
             }
             catch (Exception ex)
             {
@@ -99,6 +108,7 @@ namespace DealerAPI.Controllers
                 return StatusCode(500, "Internal Server Error");
             }
         }
+
     }
 }
 

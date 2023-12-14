@@ -23,17 +23,17 @@ namespace DealerAPI.Data
         public DbSet<PV_NewCarDealer> PV_NewCarDealerstbl { get; set; }
         public DbSet<StockAudit_Purpose> StockAudit_Purposestbl { get; set; }
         public DbSet<Order_StockAudit> Order_StockAuditstbl { get; set; }
-        public DbSet<UserPhone> userPhonestbl { get; set; }
-        public DbSet<Status> Statustbl { get; set; }
+       
+       
         public DbSet<Car> Cars { get; set; }
         public DbSet<Payment> Payment { get; set; }
-        public DbSet<Sample> Samples { get; set; }
+      
         public DbSet<BankDetail> BankDetails { get; set; }
         public DbSet<Vehiclerecord> VehicleRecords { get; set; }
         public DbSet<ProcurementFilter> ProcurementFilters { get; set; }
         public DbSet<ProcDetails> procDetails { get; set; }
         public DbSet<StockAudit> StockAudits { get; set; }
 
-        public DbSet<LastUser> LastUsetbl { get; set;}
+       
     }
 }

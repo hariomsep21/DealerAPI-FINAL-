@@ -1,8 +1,10 @@
 ﻿using AutoMapper;
 using DealerAPI.Data;
 using DealerAPI.Models.DTO;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 
 namespace DealerAPI.Controllers
 {
@@ -20,7 +22,7 @@ namespace DealerAPI.Controllers
 
         }
 
-
+        [Authorize]
         [HttpGet]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
@@ -30,30 +32,31 @@ namespace DealerAPI.Controllers
         {
             try
             {
-                // Assuming LastUsetbl is a table and Id is the property to get the last user's Id
-                int lastUserId = _db.LastUsetbl.OrderByDescending(u => u.ActiveId).FirstOrDefault()?.UserValue ?? 0;
+                var userIdString = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
-                if (lastUserId == 0)
+                if (int.TryParse(userIdString, out int userId))
                 {
-                    // Handle the case where no user is found in LastUsetbl
-                    return NotFound("No User details found");
+                    // Fetch user details where UserId is equal to the ID from claims
+                    var userInfoDetails = await _db.Userstbl
+                        .Where(user => user.Id == userId)
+                        .ToListAsync();
+
+                    if (userInfoDetails == null || userInfoDetails.Count == 0)
+                    {
+                        // Return 404 Not Found if no data is found
+                        return NotFound("No User details found");
+                    }
+
+                    // Use AutoMapper to map the entities to DTO
+                    var userInfoDto = _mapper.Map<IEnumerable<UserAccountDTO>>(userInfoDetails);
+
+                    return Ok(userInfoDto);
                 }
-
-                // Fetch user details where UserId is equal to lastUserId
-                var userInfoDetails = await _db.Userstbl
-                    .Where(user => user.Id == lastUserId)
-                    .ToListAsync();
-
-                if (userInfoDetails == null || userInfoDetails.Count == 0)
+                else
                 {
-                    // Return 404 Not Found if no data is found
-                    return NotFound("No User details found");
+                    // Handle the case where the user ID from the claim cannot be parsed as an integer
+                    return BadRequest("Invalid user ID");
                 }
-
-                // Use AutoMapper to map the entities to DTO
-                var userInfoDto = _mapper.Map<IEnumerable<UserAccountDTO>>(userInfoDetails);
-
-                return Ok(userInfoDto);
             }
             catch (Exception ex)
             {
@@ -62,6 +65,7 @@ namespace DealerAPI.Controllers
                 // Return 500 Internal Server Error
                 return StatusCode(500, "Internal Server Error");
             }
+
 
 
         }
