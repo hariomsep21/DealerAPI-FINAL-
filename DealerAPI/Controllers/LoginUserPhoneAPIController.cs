@@ -225,7 +225,9 @@ namespace DealerAPI.Controllers
         {
             List<Claim> claims = new List<Claim>()
           {
-              new Claim(ClaimTypes.NameIdentifier, userInfo.Id.ToString())
+              new Claim(ClaimTypes.NameIdentifier, userInfo.Id.ToString()),
+              new Claim (ClaimTypes.Name, userInfo.UserName)
+
           };
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config.GetSection("Appsettings:Token").Value!));
             var cred = new SigningCredentials(key, SecurityAlgorithms.HmacSha256Signature);
