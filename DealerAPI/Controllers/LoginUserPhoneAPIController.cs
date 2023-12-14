@@ -16,6 +16,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using DealerAPI.Migrations;
+using System.Security.Cryptography;
 
 namespace DealerAPI.Controllers
 {
@@ -37,7 +38,7 @@ namespace DealerAPI.Controllers
 
 
         [HttpGet]
-
+        [Authorize]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -46,7 +47,7 @@ namespace DealerAPI.Controllers
         {
             try
             {
-                var Phone = await _db.userPhonestbl.ToListAsync();
+                var Phone = await _db.Userstbl.ToListAsync();
 
                 if (Phone == null || Phone.Count == 0)
                 {
@@ -65,140 +66,374 @@ namespace DealerAPI.Controllers
 
 
 
+      
+        [HttpPost("generateotp")]
+        public IActionResult GenerateOTP(string phoneNumber)
+        {
+            if (string.IsNullOrEmpty(phoneNumber))
+            {
+                return BadRequest("Phone number is required to generate OTP.");
+            }
+
+            // Check if the user with the given phone number exists in the database
+            var user = _db.Userstbl.FirstOrDefault(u => u.Phone == phoneNumber);
+
+            if (user == null)
+            {
+                return NotFound("User not found.");
+            }
+
+            // Generate a 4-digit OTP
+            int otp = GenerateOTP();
+
+            // Set the OTP and its expiry in the UserInfo table
+            user.OTP = otp;
+            // Expiry set to 1 minute from current time
+            user.OTPExpiry = DateTime.UtcNow.AddMinutes(1);
+            _db.SaveChanges();
+
+            // Return the OTP for the user to enter on the next page
+            return Ok(otp); // Modify this as needed
+        }
+        private bool IsOTPOutdated(DateTime? otpExpiration)
+        {
+            if (otpExpiration.HasValue && otpExpiration.Value < DateTime.UtcNow)
+            {
+                return true; // OTP has expired
+            }
+            return false; // OTP is still valid
+        }
+
+        //resend
+
+        [HttpPost("resend-otp")]
+        public IActionResult ResendOTP(string phoneNumber)
+        {
+            if (string.IsNullOrEmpty(phoneNumber))
+            {
+                return BadRequest("Phone number is required to generate OTP.");
+            }
+
+            // Check if the user with the given phone number exists in the database
+            var user = _db.Userstbl.FirstOrDefault(u => u.Phone == phoneNumber);
+
+            if (user == null)
+            {
+                return NotFound("User not found.");
+            }
+
+            // Check if the previous OTP expired
+            if (IsOTPOutdated(user.OTPExpiry))
+            {
+                // Generate a new OTP and update user information
+                int newOTP = GenerateOTP();
+                user.OTP = newOTP;
+                user.OTPExpiry = DateTime.UtcNow.AddMinutes(1); // Set a new expiration time
+
+                // Save changes to the database
+                _db.SaveChanges();
+
+                // Send the new OTP via SMS or any other method (not shown here)
+
+                return Ok("New OTP sent successfully.");
+            }
 
 
 
+            return BadRequest("Previous OTP is still valid.");
+        }
 
-        [HttpPost("Login")]
-        [ProducesResponseType(200)]
-        [ProducesResponseType(400)]
-        [ProducesResponseType(404)]
-        [ProducesResponseType(500)]
+        //Verify
 
-        public IActionResult LoginUserPhone([FromBody] UserPhoneDTO userPhoneDTO)
+        [HttpPost("verifyotp")]
+        public IActionResult VerifyOTP(string phoneNumber, int enteredOTP)
+        {
+            if (string.IsNullOrEmpty(phoneNumber) || enteredOTP == null)
+            {
+                return BadRequest("Phone number and OTP are required for verification.");
+            }
+
+            // Check if the user with the given phone number exists in the database
+            var user = _db.Userstbl.FirstOrDefault(u => u.Phone == phoneNumber);
+
+            if (user == null)
+            {
+                return NotFound("User not found.");
+            }
+
+            // Check if the entered OTP matches the stored OTP and is not expired
+            if (user.OTP == enteredOTP && user.OTPExpiry > DateTime.UtcNow)
+            {
+                // Reset the OTP and its expiry as it's no longer needed
+                user.OTP = null;
+                user.OTPExpiry = DateTime.MinValue;
+
+                _db.SaveChanges();
+
+                // Generate a token for successful login
+                string token = CreateToken(user);
+
+                var refreshToken = GenerateRefreshToken();
+                SetRefreshToken(refreshToken, user);
+                // Perform actions for successful login
+                // You can return user information, generate a token, or set session information here
+
+                return Ok(token); // Modify this as needed
+            }
+
+            user.OTP = null;
+            user.OTPExpiry = DateTime.MinValue;
+
+            _db.SaveChanges();
+            return BadRequest("Invalid OTP or OTP has expired");
+
+        }
+
+        private RefreshToken GenerateRefreshToken()
+        {
+            var refreshToken = new RefreshToken()
+            {
+                Token = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64)),
+                Expires = DateTime.Now.AddDays(7),
+                Created = DateTime.UtcNow
+            };
+            return refreshToken;
+        }
+
+        private void SetRefreshToken(RefreshToken refreshToken, UserInfo user)
+        {
+            var cookiOptions = new CookieOptions
+            {
+                HttpOnly = true,
+                Expires = refreshToken.Expires,
+            };
+            Response.Cookies.Append("refreshToken", refreshToken.Token, cookiOptions);
+            user.RefreshToken = refreshToken.Token;
+            user.TokenCreated = refreshToken.Created;
+            user.TokenExpires = refreshToken.Expires;
+            _db.SaveChanges();
+
+
+        }
+        private int GenerateOTP()
+        {
+            Random random = new Random();
+            return random.Next(1000, 9999);
+        }
+
+        private string CreateToken(UserInfo userInfo)
+        {
+            List<Claim> claims = new List<Claim>()
+          {
+              new Claim(ClaimTypes.NameIdentifier, userInfo.Id.ToString())
+          };
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config.GetSection("Appsettings:Token").Value!));
+            var cred = new SigningCredentials(key, SecurityAlgorithms.HmacSha256Signature);
+            var token = new JwtSecurityToken(
+                claims: claims,
+
+                expires: DateTime.UtcNow.AddHours(2),
+                audience: "http://localhost:5137",
+                signingCredentials: cred
+                );
+            var jwt = new JwtSecurityTokenHandler().WriteToken(token);
+            return jwt;
+
+        }
+
+
+
+        [HttpPost("logout")]
+        [Authorize]
+        public async Task<IActionResult> Logout()
         {
             try
             {
+                // Retrieve the user from the authenticated context
+                var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
-                //these two ine for clean LastUsertbl and it is restart with 1 id.
-                _db.Database.ExecuteSqlRaw("DELETE FROM dbo.LastUsetbl");
-                _db.Database.ExecuteSqlRaw("DBCC CHECKIDENT('dbo.LastUsetbl', RESEED, 0)");
-
-                if (!ModelState.IsValid)
+                if (!string.IsNullOrEmpty(userId) && int.TryParse(userId, out int userIdInt))
                 {
-                    return BadRequest(ModelState);
+                    // Find the user from the database using the converted ID
+                    var user = await _db.Userstbl.FirstOrDefaultAsync(u => u.Id == userIdInt);
+
+                    if (user != null)
+                    {
+                        // Invalidate the refresh token by setting it to null or an empty string
+                        user.RefreshToken = null;
+                        // You might also want to update TokenCreated and TokenExpires here if applicable
+
+                        await _db.SaveChangesAsync();
+
+                        // Clear the token cookie on the client-side
+                        Response.Cookies.Delete("refreshToken");
+
+
+                        return Ok("Logged out successfully");
+                    }
+
+                    return NotFound("User not found");
                 }
 
-                var existingUserPhone = _db.userPhonestbl.FirstOrDefault(u => u.PhoneNumber == userPhoneDTO.PhoneNumber);
+                return BadRequest("Invalid or missing user ID");
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, $"An error occurred: {ex.Message}");
+            }
+        }
 
-                if (existingUserPhone == null)
+
+        [HttpPost("refresh-token")]
+
+        public async Task<ActionResult<string>> RefreshToken()
+        {
+            try
+            {
+                var refreshToken = Request.Cookies["refreshToken"];
+
+                // Retrieve the user from the database based on the refresh token
+                var user = await _db.Userstbl.FirstOrDefaultAsync(u => u.RefreshToken == refreshToken);
+
+                if (user == null)
                 {
-                    return NotFound($"Phone number '{userPhoneDTO.PhoneNumber}' not found");
+                    return Unauthorized("Invalid Refresh Token.");
+                }
+                else if (user.TokenExpires < DateTime.Now)
+                {
+                    return Unauthorized("Token expired.");
                 }
 
-                var userInfo = _db.Userstbl.FirstOrDefault(u => u.PhnId == existingUserPhone.PhoneId);
-
-                if (userInfo == null)
-                {
-
-                    return NotFound($"User information not found for phone number '{userPhoneDTO.PhoneNumber}'");
-                }
-
-                //these code for call generate method and save in database.
-                var otpUpdate = GenerateOTP();
-                userInfo.OTP = otpUpdate;
-                _db.SaveChanges();
-
-
-                //these code for  save UderId  in database.
-                var activeUserId = new LastUser { UserValue = userInfo.Id };
-                _db.LastUsetbl.Add(activeUserId);
-                _db.SaveChanges();
-
-
-
-                var token = GenerateJwtToken(existingUserPhone, userInfo);
+                // Refresh the token and generate a new refresh token
+                string token = CreateToken(user);
+                var newRefreshToken = GenerateRefreshToken();
+                SetRefreshToken(newRefreshToken, user);
 
                 return Ok(token);
             }
             catch (Exception ex)
             {
-                // Log the exception details
-
-                return StatusCode(StatusCodes.Status500InternalServerError, $"Internal Server Error: {ex.Message}");
+                return StatusCode(StatusCodes.Status500InternalServerError, $"An error occurred: {ex.Message}");
             }
         }
 
-        private string GenerateOTP()
+
+        [HttpPost("Register")]
+        public async Task<ActionResult<UserPhoneDTO>> RegisterUser(string phone)
         {
-            // Generate a random 4-digit OTP
-            Random random = new Random();
-            int otp = random.Next(1000, 10000);
-
-            return otp.ToString("D4"); // Format as a 4-digit string
-        }
-
-
-        private string GenerateJwtToken(UserPhone userPhone, UserInfo userInfo)
-        {
-            var userIdClaim = userInfo?.PhnId == userPhone.PhoneId
-                ? new Claim(ClaimTypes.NameIdentifier, userInfo.Id.ToString())
-                : null;
-
-            var claims = new List<Claim>();
-
-            if (!string.IsNullOrEmpty(userPhone.PhoneNumber))
+            if (!ModelState.IsValid)
             {
-                claims.Add(new Claim(ClaimTypes.Name, userPhone.PhoneNumber));
+                return BadRequest(ModelState);
             }
 
-            if (userIdClaim != null)
+            // Check if the phone number already exists
+            var existingUser = await _db.Userstbl.FirstOrDefaultAsync(u => u.Phone == phone);
+            if (existingUser != null)
             {
-                claims.Add(userIdClaim);
+                return Conflict("Phone number already exists");
             }
 
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config.GetSection("Authentication:Schemes:Bearer:SigningKeys:0:Value").Value));
-            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256Signature);
+            // Create a new user based on the DTO
+            var newUser = new UserInfo
+            {
+                Phone = phone,
+                // Set other properties as needed
+            };
 
-            var token = new JwtSecurityToken(
+            // Add the user to the database
+            _db.Userstbl.Add(newUser);
+            await _db.SaveChangesAsync();
+            int otp = GenerateOTP();
 
-                claims: claims,
-                expires: DateTime.Now.AddDays(1),
-                signingCredentials: creds
-            );
+            // Set the OTP and its expiry in the UserInfo table
+            newUser.OTP = otp;
+            // Expiry set to 1 minute from current time
+            newUser.OTPExpiry = DateTime.UtcNow.AddMinutes(1);
+            _db.SaveChanges();
 
-            var jwt = new JwtSecurityTokenHandler().WriteToken(token);
-            return jwt;
+            // Return the OTP for the user to enter on the next page
+            return Ok(otp); // Mo
+
+
         }
-
-
-
-
-
-
-        [HttpGet("{id}")]
-        [ProducesResponseType(StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status404NotFound)]
-        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        public ActionResult<UserPhoneDTO> GetUserPhoneById(int id)
+        [HttpPost("AdditionalDetails")]
+        public async Task<IActionResult> AddAdditionalUserDetails([FromBody] UserAdditionalDetailsDto additionalDetails, string phone)
         {
             try
             {
-                var userPhone = _db.userPhonestbl.FirstOrDefault(u => u.PhoneId == id);
-
-                if (userPhone == null)
+                if (!ModelState.IsValid)
                 {
-                    return NotFound($"User phone with ID '{id}' not found");
+                    return BadRequest(ModelState);
                 }
 
-                var userPhoneDto = _mapper.Map<UserPhoneDTO>(userPhone);
+                // Find the user by phone number
+                var existingUser = await _db.Userstbl.FirstOrDefaultAsync(u => u.Phone == phone);
+                if (existingUser == null)
+                {
+                    return NotFound("Phone number not found");
+                }
 
-                return Ok(userPhoneDto);
+                // Update the user with additional details
+                existingUser.UserName = additionalDetails.UserName;
+                existingUser.UserEmail = additionalDetails.UserEmail;
+                existingUser.SId = additionalDetails.SId;
+
+                // Save changes to the database
+                await _db.SaveChangesAsync();
+                string token = CreateToken(existingUser);
+
+                var refreshToken = GenerateRefreshToken();
+                SetRefreshToken(refreshToken, existingUser);
+                // Perform actions for successful login
+                // You can return user information, generate a token, or set session information here
+
+                return Ok(token); // Modify this as
+               
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Internal Server Error: {ex.Message}");
+                // Log the exception for debugging purposes
+                Console.WriteLine($"Exception: {ex.Message}");
+                return StatusCode(500, "An error occurred while saving data");
             }
+        }
+
+
+        [HttpPost("verifyotpSignup")]
+        public IActionResult VerifyOTPSignup(string phoneNumber, int enteredOTP)
+        {
+            if (string.IsNullOrEmpty(phoneNumber) || enteredOTP == null)
+            {
+                return BadRequest("Phone number and OTP are required for verification.");
+            }
+
+            // Check if the user with the given phone number exists in the database
+            var user = _db.Userstbl.FirstOrDefault(u => u.Phone == phoneNumber);
+
+            if (user == null)
+            {
+                return NotFound("User not found.");
+            }
+
+            // Check if the entered OTP matches the stored OTP and is not expired
+            if (user.OTP == enteredOTP && user.OTPExpiry > DateTime.UtcNow)
+            {
+                // Reset the OTP and its expiry as it's no longer needed
+                user.OTP = null;
+                user.OTPExpiry = DateTime.MinValue;
+
+                _db.SaveChanges();
+
+
+                return Ok(); // Modify this as needed
+            }
+
+            user.OTP = null;
+            user.OTPExpiry = DateTime.MinValue;
+
+            _db.SaveChanges();
+            return BadRequest("Invalid OTP or OTP has expired");
+
         }
     }
 }

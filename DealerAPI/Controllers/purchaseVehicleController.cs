@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Dealer.Model.DTO;
 using Dealer.Model;
 using DealerAPI.Data;
+using Microsoft.AspNetCore.Authorization;
 
 namespace MyAppAPI.Controllers
 {
@@ -19,6 +20,7 @@ namespace MyAppAPI.Controllers
             _db = db;
         }
         [HttpGet("VehicleRecord")]
+        [Authorize]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<IEnumerable<CarStatusDto>>> GetCarsWithStatus()
@@ -73,6 +75,7 @@ namespace MyAppAPI.Controllers
 
 
         [HttpGet("VehicleRecord/{id}")]
+        [Authorize]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
 

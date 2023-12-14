@@ -2,8 +2,10 @@
 using DealerAPI.Data;
 using DealerAPI.Models;
 using DealerAPI.Models.DTO;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 
 namespace DealerAPI.Controllers
 {
@@ -23,6 +25,7 @@ namespace DealerAPI.Controllers
 
 
         [HttpGet]
+        [Authorize]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -56,39 +59,43 @@ namespace DealerAPI.Controllers
         }
 
 
-
+        [Authorize]
         [HttpPost("Post")]
         [ProducesResponseType(200)]
         [ProducesResponseType(400)]
         [ProducesResponseType(404)]
         [ProducesResponseType(500)]
 
-        public ActionResult<PV_AggregatorDTO> PostAggregatorSupport( PV_AggregatorDTO pv_aggregatorDto)
+        public ActionResult<PV_AggregatorDTO> PostAggregatorSupport(PV_AggregatorDTO pv_aggregatorDto)
         {
             try
             {
-                int lastUserId = _db.LastUsetbl.OrderByDescending(u => u.ActiveId).FirstOrDefault()?.UserValue ?? 0;
-
                 if (pv_aggregatorDto == null)
                 {
                     return BadRequest("PV_AggregatorDTO is null");
                 }
 
-                // Optional: Validation if an item with the same Id already exists
-                // if (_db.PV_Aggregatorstbl.Any(v => v.Id == pv_aggregatorDto.Id))
-                // {
-                //     return StatusCode(500, "Item with the same Id already exists");
-                // }
+                var userIdString = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
-                pv_aggregatorDto.UserInfoId = lastUserId;
-                var pvAggregatorModel = _mapper.Map<PV_Aggregator>(pv_aggregatorDto);
+                if (int.TryParse(userIdString, out int userId))
+                {
+                    // Set UserId in the DTO before mapping to the entity
+                    pv_aggregatorDto.UserInfoId = userId;
 
-                _db.PV_Aggregatorstbl.Add(pvAggregatorModel);
-                _db.SaveChanges();
+                    var pvAggregatorModel = _mapper.Map<PV_Aggregator>(pv_aggregatorDto);
 
-                var createdDto = _mapper.Map<PV_AggregatorDTO>(pvAggregatorModel);
+                    _db.PV_Aggregatorstbl.Add(pvAggregatorModel);
+                    _db.SaveChanges();
 
-                return Ok(createdDto);
+                    var createdDto = _mapper.Map<PV_AggregatorDTO>(pvAggregatorModel);
+
+                    return Ok(createdDto);
+                }
+                else
+                {
+                    // Handle the case where the user ID from the claim cannot be parsed as an integer
+                    return BadRequest("Invalid user ID");
+                }
             }
             catch (Exception ex)
             {
@@ -96,6 +103,7 @@ namespace DealerAPI.Controllers
                 return StatusCode(500, "Internal Server Error");
             }
         }
+
 
     }
 }

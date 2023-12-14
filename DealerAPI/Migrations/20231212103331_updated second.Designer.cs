@@ -4,6 +4,7 @@ using DealerAPI.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace DealerAPI.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20231212103331_updated second")]
+    partial class updatedsecond
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -180,6 +183,25 @@ namespace DealerAPI.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("ProcurementFilters");
+                });
+
+            modelBuilder.Entity("Dealer.Model.Sample", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreateTime")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Name")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Samples");
                 });
 
             modelBuilder.Entity("Dealer.Model.StockAudit", b =>
@@ -685,6 +707,23 @@ namespace DealerAPI.Migrations
                     b.HasIndex("SId");
 
                     b.ToTable("Userstbl");
+                });
+
+            modelBuilder.Entity("DealerAPI.Models.UserPhone", b =>
+                {
+                    b.Property<int>("PhoneId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("PhoneId"));
+
+                    b.Property<string>("PhoneNumber")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("PhoneId");
+
+                    b.ToTable("userPhonestbl");
                 });
 
             modelBuilder.Entity("PV_Aggregator", b =>

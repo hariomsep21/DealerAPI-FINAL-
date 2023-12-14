@@ -4,6 +4,9 @@ using Microsoft.EntityFrameworkCore;
 
 using Dealer.Model.DTO;
 using DealerAPI.Data;
+using Microsoft.AspNetCore.Authorization;
+using Dealer.Model;
+using System.Security.Claims;
 
 namespace MyAppAPI.Controllers
 {
@@ -20,6 +23,7 @@ namespace MyAppAPI.Controllers
         }
 
         [HttpGet("filter")]
+        [Authorize]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -38,7 +42,9 @@ namespace MyAppAPI.Controllers
                 return StatusCode(500, "Internal Server Error");
             }
         }
+
         [HttpGet("Procurement")]
+        [Authorize]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -46,16 +52,41 @@ namespace MyAppAPI.Controllers
         {
             try
             {
-                // Check if breedId is null (no filter selected)
-                if (!Id.HasValue)
+                var userIdString = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+                if (!string.IsNullOrEmpty(userIdString) && int.TryParse(userIdString, out int userId))
                 {
-                    _logger.LogInformation("Getting Procurement");
-                    // Retrieve all procurements if no filter is selected
-                    var allProcurements = await _db.procDetails
-
+                    IQueryable<ProcDetails> procurementQuery = _db.procDetails
                         .Include(p => p.Payment)
-                                            .ThenInclude(c => c.Car)
+                            .ThenInclude(pay => pay.Car)
+                        .Where(p => p.Payment.Car.UserId == userId); // Filter by the user's cars
 
+                    if (!Id.HasValue)
+                    {
+                        _logger.LogInformation("Getting Procurement");
+                        // Retrieve all procurements if no filter is selected
+                        var allProcurements = await procurementQuery
+                            .Select(p => new ProcurementDto
+                            {
+                                FilterId = p.FilterId,
+                                PurchaseId = p.CarId,
+                                CarName = p.Payment.CarName,
+                                Variant = p.Payment.Variant,
+                                Amount_due = p.Due_Amount,
+                                Amount_paid = p.Paid_Amount,
+                                Facility_Availed = p.Facility_Availed,
+                                Invoice_Charges = p.Invoice_Charges,
+                                Processing_charges = p.ProcessingCharges,
+                                // Add the specific procurement field you want to include
+                            })
+                            .ToListAsync();
+
+                        return Ok(allProcurements);
+                    }
+
+                    // Retrieve procurements filtered by ID
+                    var ProcurementFiltered = await procurementQuery
+                        .Where(p => p.FilterId == Id)
                         .Select(p => new ProcurementDto
                         {
                             FilterId = p.FilterId,
@@ -67,45 +98,22 @@ namespace MyAppAPI.Controllers
                             Facility_Availed = p.Facility_Availed,
                             Invoice_Charges = p.Invoice_Charges,
                             Processing_charges = p.ProcessingCharges,
-
                             // Add the specific procurement field you want to include
                         })
                         .ToListAsync();
 
-                    return Ok(allProcurements);
-                }
-
-                // Retrieve procurements filtered by breed ID
-                var ProcurementFiltered = await _db.procDetails
-
-                                            .Include(p => p.Payment)
-                                                                .ThenInclude(c => c.Car)
-
-                    .Where(P => P.FilterId == Id)
-                    .Select(p => new ProcurementDto
+                    if (!ProcurementFiltered.Any())
                     {
-                        FilterId = p.FilterId,
-                        PurchaseId = p.CarId,
-                        CarName = p.Payment.CarName,
-                        Variant = p.Payment.Variant,
-                        Amount_due = p.Due_Amount,
-                        Amount_paid = p.Paid_Amount,
-                        Facility_Availed = p.Facility_Availed,
-                        Invoice_Charges = p.Invoice_Charges,
-                        Processing_charges = p.ProcessingCharges,
+                        return NotFound(); // Return 404 if no procurements found for the given ID
+                    }
 
-
-
-                        // Add the specific procurement field you want to include
-                    })
-                    .ToListAsync();
-
-                if (ProcurementFiltered == null || !ProcurementFiltered.Any())
-                {
-                    return NotFound(); // Return 404 if no procurements found for the given ID
+                    return Ok(ProcurementFiltered);
                 }
-
-                return Ok(ProcurementFiltered);
+                else
+                {
+                    // Handle the case where the user ID from the claim cannot be parsed as an integer
+                    return BadRequest("Invalid user ID");
+                }
             }
             catch (Exception ex)
             {
@@ -114,7 +122,10 @@ namespace MyAppAPI.Controllers
                 return StatusCode(500, $"Error: {ex.Message}");
             }
         }
+
+
         [HttpGet("ProcurementStatus")]
+        [Authorize]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -122,23 +133,32 @@ namespace MyAppAPI.Controllers
         {
             try
             {
-                _logger.LogInformation("Getting Procurement Status");
-                var procurementStatus = await _db.procDetails
-                    .Include(c => c.Payment)
-                                        .ThenInclude(c => c.Car)
-                        .Where(c => c.Status != null)
-                    .Select(c => new ProcurementStatusDto
-                    {
-                        CarName = c.Payment.CarName,
-                        Variant = c.Payment.Variant,
-                        PurchaseId = c.CarId,
-                        Status = c.Status,
-                        Purchased_Amount =c.Purchased_Amount
+                var userIdString = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
-                    })
-                    .ToListAsync();
+                if (!string.IsNullOrEmpty(userIdString) && int.TryParse(userIdString, out int userId))
+                {
+                    _logger.LogInformation("Getting Procurement Status");
 
-                return Ok(procurementStatus);
+                    var procurementStatus = await _db.procDetails
+                        .Include(c => c.Payment)
+                            .ThenInclude(c => c.Car)
+                        .Where(c => c.Status != null && c.Payment.Car.UserId == userId) // Filter by user ID
+                        .Select(c => new ProcurementStatusDto
+                        {
+                            CarName = c.Payment.CarName,
+                            Variant = c.Payment.Variant,
+                            PurchaseId = c.CarId,
+                            Status = c.Status,
+                            Purchased_Amount = c.Purchased_Amount
+                        })
+                        .ToListAsync();
+
+                    return Ok(procurementStatus);
+                }
+                else
+                {
+                    return BadRequest("Invalid user ID");
+                }
             }
             catch (Exception ex)
             {
@@ -147,8 +167,9 @@ namespace MyAppAPI.Controllers
             }
         }
 
-
+        //new Change
         [HttpGet("ProcurementClosed")]
+        [Authorize]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -156,26 +177,32 @@ namespace MyAppAPI.Controllers
         {
             try
             {
-                _logger.LogInformation("Getting Procurement Closed");
-                var procurementclosed = await _db.procDetails
-                    .Include(c => c.Payment)
-                    .ThenInclude(c => c.Car)
-                    
-                        .Where(c => c.ClosedOn != null)
+                var userIdString = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
-                    .Select(c => new ProcurementColsedDto
-                    {
-                        CarName = c.Payment.CarName,
-                        Variant = c.Payment.Variant,
-                        Amount_paid = c.Paid_Amount,
-                        ColsedOn = c.ClosedOn,
-                        PurchaseId = c.CarId
+                if (!string.IsNullOrEmpty(userIdString) && int.TryParse(userIdString, out int userId))
+                {
+                    _logger.LogInformation("Getting Procurement Closed");
 
+                    var procurementclosed = await _db.procDetails
+                        .Include(c => c.Payment)
+                            .ThenInclude(c => c.Car)
+                        .Where(c => c.ClosedOn != null && c.Payment.Car.UserId == userId) // Filter by user ID
+                        .Select(c => new ProcurementColsedDto
+                        {
+                            CarName = c.Payment.CarName,
+                            Variant = c.Payment.Variant,
+                            Amount_paid = c.Paid_Amount,
+                            ColsedOn = c.ClosedOn,
+                            PurchaseId = c.CarId
+                        })
+                        .ToListAsync();
 
-                    })
-                    .ToListAsync();
-
-                return Ok(procurementclosed);
+                    return Ok(procurementclosed);
+                }
+                else
+                {
+                    return BadRequest("Invalid user ID");
+                }
             }
             catch (Exception ex)
             {

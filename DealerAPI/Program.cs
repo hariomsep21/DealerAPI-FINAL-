@@ -44,7 +44,19 @@ builder.Services.AddSwaggerGen(
         options.OperationFilter<SecurityRequirementsOperationFilter>();
     });
 
-builder.Services.AddAuthentication().AddJwtBearer();
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(options =>
+{
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuerSigningKey = true,
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration.GetSection("AppSettings:Token").Value)),
+        ValidateIssuer = false,
+        ValidateAudience = true,
+        ValidAudience = "http://localhost:5137"
+
+    };
+});
+
 
 // AutoMapper Config
 builder.Services.AddAutoMapper(typeof(Program));
@@ -65,9 +77,8 @@ if (app.Environment.IsDevelopment())
 // Use HTTPS redirection in production (commented out for development)
 app.UseHttpsRedirection();
 #endif
-
-// Authentication and Authorization
-
+app.UseAuthentication();
+// Authentication and Authorizationapp.UseAuthentication();
 app.UseAuthorization();
 
 // Map controllers

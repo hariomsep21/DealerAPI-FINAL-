@@ -2,14 +2,14 @@
 using DealerAPI.Data;
 using DealerAPI.Models;
 using DealerAPI.Models.DTO;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 
 namespace DealerAPI.Controllers
 {
-    //public class PV_OpenMarketAPIController
-    //{
-    //}
+
 
     [Route("api/[Controller]")]
     [ApiController]
@@ -27,6 +27,7 @@ namespace DealerAPI.Controllers
 
 
         [HttpGet]
+        [Authorize]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -55,52 +56,55 @@ namespace DealerAPI.Controllers
                 // Return 500 Internal Server Error
                 return StatusCode(500, "Internal Server Error");
             }
-
-
         }
 
 
 
         [HttpPost("Post")]
+        [Authorize]
         [ProducesResponseType(200)]
         [ProducesResponseType(400)]
         [ProducesResponseType(404)]
         [ProducesResponseType(500)]
 
-        public ActionResult<PV_NewCarDealerDTO> PostNewCarDealerSupport(PV_NewCarDealerDTO pv_cardealerDto)
+
+        public ActionResult<PV_NewCarDealerDTO> PostNewCarDealer(PV_NewCarDealerDTO pv_cardealerDto)
         {
             try
             {
-                int lastUserId = _db.LastUsetbl.OrderByDescending(u => u.ActiveId).FirstOrDefault()?.UserValue ?? 0;
                 if (pv_cardealerDto == null)
                 {
-                    return BadRequest("PV_AggregatorDTO is null");
+                    return BadRequest("PV_NewCarDealerDTO is null");
                 }
 
-                // Optional: Validation if an item with the same Id already exists
-                // if (_db.PV_Aggregatorstbl.Any(v => v.Id == pv_aggregatorDto.Id))
-                // {
-                //     return StatusCode(500, "Item with the same Id already exists");
-                // }
+                var userIdString = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
-                pv_cardealerDto.UserInfoId = lastUserId;
-                var pv_cardealerModel = _mapper.Map<PV_NewCarDealer>(pv_cardealerDto);
+                if (int.TryParse(userIdString, out int userId))
+                {
+                    // Set UserId in the DTO before mapping to the entity
+                    pv_cardealerDto.UserInfoId = userId;
 
-                _db.PV_NewCarDealerstbl.Add(pv_cardealerModel);
-                _db.SaveChanges();
+                    var pv_cardealerModel = _mapper.Map<PV_NewCarDealer>(pv_cardealerDto);
 
-                var pv_carDtoModel = _mapper.Map<PV_NewCarDealerDTO>(pv_cardealerModel);
+                    _db.PV_NewCarDealerstbl.Add(pv_cardealerModel);
+                    _db.SaveChanges();
 
-                return Ok(pv_carDtoModel);
+                    var pv_carDtoModel = _mapper.Map<PV_NewCarDealerDTO>(pv_cardealerModel);
+
+                    return Ok(pv_carDtoModel);
+                }
+                else
+                {
+                    // Handle the case where the user ID from the claim cannot be parsed as an integer
+                    return BadRequest("Invalid user ID");
+                }
             }
             catch (Exception ex)
             {
                 // Log the exception or handle it as appropriate for your application
                 return StatusCode(500, "Internal Server Error");
+            }
+        }
     }
 }
 
-
-       
-    }
-}

@@ -2,8 +2,10 @@
 using DealerAPI.Data;
 using DealerAPI.Models;
 using DealerAPI.Models.DTO;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 
 namespace DealerAPI.Controllers
 {
@@ -23,6 +25,7 @@ namespace DealerAPI.Controllers
 
 
         [HttpGet]
+        [Authorize]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -31,23 +34,30 @@ namespace DealerAPI.Controllers
         {
             try
             {
-                int lastUserId = _db.LastUsetbl.OrderByDescending(u => u.ActiveId).FirstOrDefault()?.UserValue ?? 0;
-                var profile = await _db.ProfileInformationtbl
-     .Where(p => p.UserInfoId == lastUserId)
-     .ToListAsync();
+                var userIdString = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
-
-                if (profile == null || profile.Count == 0)
+                if (int.TryParse(userIdString, out int userId))
                 {
-                    // Return 404 Not Found if no data is found
-                    return NotFound("No account details found");
+                    var profiles = await _db.ProfileInformationtbl
+                        .Where(p => p.UserInfoId == userId)
+                        .ToListAsync();
+
+                    if (profiles == null || profiles.Count == 0)
+                    {
+                        // Return 404 Not Found if no data is found
+                        return NotFound("No account details found");
+                    }
+
+                    // Use AutoMapper to map the entities to DTO
+                    var profileDto = _mapper.Map<IEnumerable<ProfileInformationDTO>>(profiles);
+
+                    return Ok(profileDto);
                 }
-
-                
-                // Use AutoMapper to map the entities to DTO
-                var profileDto = _mapper.Map<IEnumerable<ProfileInformationDTO>>(profile);
-
-                return Ok(profileDto);
+                else
+                {
+                    // Handle the case where the user ID from the claim cannot be parsed as an integer
+                    return BadRequest("Invalid user ID");
+                }
             }
             catch (Exception ex)
             {
@@ -56,10 +66,10 @@ namespace DealerAPI.Controllers
                 // Return 500 Internal Server Error
                 return StatusCode(500, "Internal Server Error");
             }
-
-
         }
+
         [HttpPost("Post")]
+        [Authorize]
         [ProducesResponseType(StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
@@ -67,29 +77,39 @@ namespace DealerAPI.Controllers
         {
             try
             {
-                int lastUserId = _db.LastUsetbl.OrderByDescending(u => u.ActiveId).FirstOrDefault()?.UserValue ?? 0;
-
                 // Validate the incoming data
                 if (profileCreateDto == null)
                 {
                     return BadRequest("Invalid data");
                 }
 
-                // You may want to perform additional validation on profileCreateDto properties
+                var userIdString = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
-                // Create a new profile entity
-                profileCreateDto.UserInfoId = lastUserId;
-                var newProfile = _mapper.Map<ProfileInformation>(profileCreateDto);
+                if (int.TryParse(userIdString, out int userId))
+                {
+                    // Set UserId in the DTO before mapping to the entity
+                    profileCreateDto.UserInfoId = userId;
 
-                // Add the new profile to the database
-                _db.ProfileInformationtbl.Add(newProfile);
-                await _db.SaveChangesAsync();
+                    // You may want to perform additional validation on profileCreateDto properties
 
-                // Use AutoMapper to map the created entity to DTO
-                var createdProfileDto = _mapper.Map<ProfileInformationDTO>(newProfile);
+                    // Create a new profile entity
+                    var newProfile = _mapper.Map<ProfileInformation>(profileCreateDto);
 
-                // Return 201 Created with the created profile DTO
-                return CreatedAtAction(nameof(GetProfileSupport), new { id = createdProfileDto.UserInfoId }, createdProfileDto);
+                    // Add the new profile to the database
+                    _db.ProfileInformationtbl.Add(newProfile);
+                    await _db.SaveChangesAsync();
+
+                    // Use AutoMapper to map the created entity to DTO
+                    var createdProfileDto = _mapper.Map<ProfileInformationDTO>(newProfile);
+
+                    // Return 201 Created with the created profile DTO
+                    return CreatedAtAction(nameof(GetProfileSupport), new { id = createdProfileDto.UserInfoId }, createdProfileDto);
+                }
+                else
+                {
+                    // Handle the case where the user ID from the claim cannot be parsed as an integer
+                    return BadRequest("Invalid user ID");
+                }
             }
             catch (Exception ex)
             {
@@ -99,6 +119,7 @@ namespace DealerAPI.Controllers
                 return StatusCode(500, "Internal Server Error");
             }
         }
+
 
     }
 }

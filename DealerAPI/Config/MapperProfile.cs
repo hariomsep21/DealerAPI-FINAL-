@@ -24,11 +24,10 @@ namespace DealerAPI.Config
             CreateMap<State, StateDTO>();
             CreateMap<Order_StockAudit,Order_StockAuditDTO>().ReverseMap();
             CreateMap<StockAudit_Purpose, StockAudit_PurposeDTO>();
-            CreateMap<UserPhone, UserPhoneDTO>().ReverseMap();
+           CreateMap<UserInfo, UserPhoneDTO>().ReverseMap();
             CreateMap<UserInfo, UserInfoDTO>().ReverseMap();
             CreateMap<UserInfo, UserAccountDTO>().ReverseMap();
-            CreateMap<LastUser, LastUserDTO>().ReverseMap();
-            CreateMap<Status, StatusDTO>().ReverseMap();
+         
             CreateMap<StockAudit, UploadPic_StockAuditDTO>().ReverseMap();
             CreateMap<Payment, PaymentProofImgDTO>().ReverseMap();
         }

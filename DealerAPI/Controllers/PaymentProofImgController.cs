@@ -1,5 +1,6 @@
 ﻿using DealerAPI.Data;
 using DealerAPI.Models.DTO;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace DealerAPI.Controllers
@@ -17,6 +18,7 @@ namespace DealerAPI.Controllers
         }
 
         [HttpPost("PaymentPic")]
+        [Authorize]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public IActionResult UploadPic(PaymentProofImgDTO  proofImgDTO)

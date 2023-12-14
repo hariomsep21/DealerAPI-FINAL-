@@ -7,38 +7,28 @@ namespace DealerAPI.Models
     public class UserInfo
     {
         [Key]
-        [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         public int Id { get; set; }
+        public int? OTP { get; set; }
+        public string? UserName { get; set; }
 
-        [Required]
-        [MaxLength(15)]
-        public string UserName { get; set; } = string.Empty;
+        public string? UserEmail { get; set; }
 
-        [EmailAddress]
-        [RegularExpression(@"^[\w-]+@gmail\.(com|in)$", ErrorMessage = "Email must end with @gmail.com or @gmail.in")]
-        public string UserEmail { get; set; } = string.Empty;
-
-        [ForeignKey("Status")]
-        public int? StatusId { get; set; }
-
-        [MaxLength(4)]
-        public string? OTP { get; set; }
-
-        [ForeignKey("State")]
-        public int? StateId { get; set; }
+        public string Phone { get; set; }
+        public DateTime OTPExpiry { get; set; }
+        public string? RefreshToken { get; set; } = string.Empty;
+        public DateTime? TokenCreated { get; set; } = DateTime.Now;
+        public DateTime? TokenExpires { get; set; }
 
 
-        [ForeignKey("UserPhones")]
-        public int? PhnId { get; set; }
+        public int? SId { get; set; }
 
-
-
-
-
-
-        public virtual Status Statuss { get; set; }
+        [ForeignKey("SId")]
         public virtual State State { get; set; }
-        public virtual UserPhone UserPhones { get; set; }
+
+
+        
+
+       // public virtual UserPhone UserPhones { get; set; }
 
         public ICollection<ProfileInformation> profileInformations { get; set; }
         public ICollection<Notification> Notifications { get; set; }

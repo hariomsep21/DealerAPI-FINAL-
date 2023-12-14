@@ -6,11 +6,13 @@ using DealerAPI.Data;
 using Dealer.Model;
 using Dealer.Model.DTO;
 using DealerAPI.Data;
+using System.Security.Claims;
 
 namespace MyAppAPI.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
 
     public class PaymentController : ControllerBase
     {
@@ -24,53 +26,63 @@ namespace MyAppAPI.Controllers
 
 
         [HttpGet("due")]
+        [Authorize]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<IEnumerable<PaymentPayDto>>> GetDuePayments()
         {
             try
             {
-                int lastUserId = _db.LastUsetbl.OrderByDescending(u => u.ActiveId).FirstOrDefault()?.UserValue ?? 0;
-
                 _logger.LogInformation("Getting Due Payments");
 
-                var currentDate = DateTime.UtcNow;
+                var userIdString = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
-                var duePayments = await _db.Payment
-                    .Include(p => p.Car)
-                    .Include(p => p.BankDetail)
-                    .ToListAsync(); // Retrieve all payments from the database
-
-                var filteredDuePayments = duePayments
-                    .Where(p => DateTime.Compare(currentDate.Date, p.DueDate.Date) < 0 &&
-                                (p.DueDate.Date - currentDate.Date).Days <= 60)
-                    .Where(p => p.Userid == lastUserId)
-                    .ToList(); // Filter the payments locally
-
-                var paymentDtos = filteredDuePayments.Select(p => new PaymentPayDto
+                if (int.TryParse(userIdString, out int userId))
                 {
+                    var currentDate = DateTime.UtcNow;
 
-                    Id = p.Id,
-                    Amount_Due = p.Amount_Due,
-                    CarId = p.CarId,
-                    CarName = p.CarName,
-                    Variant = p.Variant,
-                    DaysLeft = $"{(p.DueDate - currentDate).Days}/60",
+                    var userCars = await _db.Cars.Where(c => c.UserId == userId).ToListAsync();
+                    var carIds = userCars.Select(car => car.CarId).ToList();
+                    var duePayments = await _db.Payment
+    .Include(p => p.Car)
+    .Include(p => p.BankDetail)
+    .Where(p => carIds.Contains(p.CarId))
+    .ToListAsync();
 
-                    DueDate = p.DueDate,
-                    StartDate = p.StartDate,
-                    AmountPaid = p.AmountPaid,
-                    ProcessingCharges = p.ProcessingCharges,
-                    Name = p.Name,
-                    AccountNumber = p.AccountNumber,
-                    BankName = p.BankName,
-                    IFSCCode = p.IFSCCode,
-                    UserId = p.Userid
+                    var filteredDuePayments = duePayments
+                        .Where(p => DateTime.Compare(currentDate.Date, p.DueDate.Date) < 0 &&
+                                    (p.DueDate.Date - currentDate.Date).Days <= 60)
+                        .ToList(); //Retrieve filtered payments from the database
 
+                    var paymentDtos = duePayments.Select(p => new PaymentPayDto
+                    {
+                        Id = p.Id,
+                        Amount_Due = p.Amount_Due,
+                        CarId = p.CarId,
+                        CarName = p.CarName,
+                        Variant = p.Variant,
+                        DueDate = p.DueDate,
+                        DaysLeft = $"{(p.DueDate - currentDate).Days}/60",
 
-                }).ToList();
+                        StartDate = p.StartDate,
+                        AmountPaid = p.AmountPaid,
+                        ProcessingCharges = p.ProcessingCharges,
+                        Name = p.Name,
+                        AccountNumber = p.AccountNumber,
+                        BankName = p.BankName,
+                        IFSCCode = p.IFSCCode,
+                        UserId = p.Userid
 
-                return Ok(paymentDtos);
+                        // Populate PaymentPayDto properties here...
+                    }).ToList();
+
+                    return Ok(paymentDtos);
+                }
+                else
+                {
+                    // Handle the case where the user ID from the claim cannot be parsed as an integer
+                    return BadRequest("Invalid user ID");
+                }
             }
             catch (Exception ex)
             {
@@ -80,51 +92,60 @@ namespace MyAppAPI.Controllers
         }
 
         [HttpGet("upcoming")]
+        [Authorize]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<IEnumerable<PaymentPayDto>>> GetUpcomingPayments()
         {
             try
             {
-                int lastUserId = _db.LastUsetbl.OrderByDescending(u => u.ActiveId).FirstOrDefault()?.UserValue ?? 0;
-
                 _logger.LogInformation("Getting Upcoming Payments");
 
-                var currentDate = DateTime.UtcNow;
+                var userIdString = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
-                var upcomingPayments = await _db.Payment
-                    .Include(p => p.Car)
-                                        .Include(p => p.BankDetail)
-
-                    .ToListAsync(); // Retrieve all payments from the database
-                var filteredDuePayments = upcomingPayments
-                    .Where(p => DateTime.Compare(currentDate.Date, p.DueDate.Date) < 0 &&
-                                (p.DueDate.Date - currentDate.Date).Days > 60)
-                    .Where(p => p.Userid == lastUserId)
-                    .ToList();
-
-                var paymentDtos = filteredDuePayments.Select(p => new PaymentPayDto
+                if (int.TryParse(userIdString, out int userId))
                 {
-                    Id = p.Id,
-                    Amount_Due = p.Amount_Due,
-                    CarId = p.CarId,
-                    CarName = p.CarName,
-                    Variant = p.Variant,
-                    DueDate = p.DueDate,
-                    DaysLeft = $"{(p.DueDate - currentDate).Days}/60",
+                    var currentDate = DateTime.UtcNow;
 
-                    StartDate = p.StartDate,
-                    AmountPaid = p.AmountPaid,
-                    ProcessingCharges = p.ProcessingCharges,
-                    Name = p.Name,
-                    AccountNumber = p.AccountNumber,
-                    BankName = p.BankName,
-                    IFSCCode = p.IFSCCode
+                    var userCars = await _db.Cars.Where(c => c.UserId == userId).ToListAsync();
+                    var carIds = userCars.Select(car => car.CarId).ToList();
+                    var upcomingPayments = await _db.Payment
+                        .Include(p => p.Car)
+                        .Include(p => p.BankDetail)
+                        .Where(p => carIds.Contains(p.CarId))
+                        .ToListAsync();
 
+                    var filteredUpcomingPayments = upcomingPayments
+                        .Where(p => DateTime.Compare(currentDate.Date, p.DueDate.Date) < 0 &&
+                                    (p.DueDate.Date - currentDate.Date).Days > 60)
+                        .ToList();
 
-                }).ToList();
+                    var paymentDtos = filteredUpcomingPayments.Select(p => new PaymentPayDto
+                    {
+                        Id = p.Id,
+                        Amount_Due = p.Amount_Due,
+                        CarId = p.CarId,
+                        CarName = p.CarName,
+                        Variant = p.Variant,
+                        DueDate = p.DueDate,
+                        DaysLeft = $"{(p.DueDate - currentDate).Days}/60",
 
-                return Ok(paymentDtos);
+                        StartDate = p.StartDate,
+                        AmountPaid = p.AmountPaid,
+                        ProcessingCharges = p.ProcessingCharges,
+                        Name = p.Name,
+                        AccountNumber = p.AccountNumber,
+                        BankName = p.BankName,
+                        IFSCCode = p.IFSCCode
+                    }).ToList();
+
+                    return Ok(paymentDtos);
+                }
+                else
+                {
+                    // Handle the case where the user ID from the claim cannot be parsed as an integer
+                    return BadRequest("Invalid user ID");
+                }
             }
             catch (Exception ex)
             {
@@ -133,51 +154,44 @@ namespace MyAppAPI.Controllers
             }
         }
 
-        [HttpGet("Status")]
+
+        [HttpGet("status")]
+        [Authorize]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<IEnumerable<PaymentHistoryDto>>> GetPaymentStatus()
         {
             try
             {
-                _logger.LogInformation("Getting Payments status");
+                _logger.LogInformation("Getting Payment Status");
 
                 var currentDate = DateTime.UtcNow;
 
-                var PaymentStat = await _db.Payment
+                var paymentStatusList = await _db.Payment
                     .Where(p => p.PaymentStatus != null)
                     .Include(p => p.Car)
-                    .ToListAsync(); // Retrieve all payments from the database
+                    .ToListAsync();
 
-
-                var paymentHistoryDtos = PaymentStat.Select(p => new PaymentHistoryDto
+                var paymentHistoryDtos = paymentStatusList.Select(p => new PaymentHistoryDto
                 {
-
                     Amount_Due = p.Amount_Due,
                     CarId = p.CarId,
                     CarName = p.CarName,
                     Variant = p.Variant,
                     PaymentStatus = p.PaymentStatus
-
-
-
-
                 }).ToList();
 
                 return Ok(paymentHistoryDtos);
             }
             catch (Exception ex)
             {
-                _logger.LogError($"Error getting upcoming payments: {ex.Message}");
+                _logger.LogError($"Error getting payment status: {ex.Message}");
                 return StatusCode(500, "Internal Server Error");
             }
         }
 
-
-
-
-
         [HttpGet("details/{paymentId}")]
+        [Authorize]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<PaymentPayDto>> GetPaymentDetailsWithBankDetails(int paymentId)
@@ -233,4 +247,6 @@ namespace MyAppAPI.Controllers
 
     }
 }
+
+
 
