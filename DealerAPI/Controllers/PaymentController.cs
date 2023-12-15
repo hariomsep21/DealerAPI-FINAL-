@@ -173,7 +173,8 @@ namespace MyAppAPI.Controllers
                     .ToListAsync();
 
                 var paymentHistoryDtos = paymentStatusList.Select(p => new PaymentHistoryDto
-                {
+                {Id = p.Id,
+
                     Amount_Due = p.Amount_Due,
                     CarId = p.CarId,
                     CarName = p.CarName,
