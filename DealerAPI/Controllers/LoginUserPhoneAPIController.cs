@@ -234,7 +234,7 @@ namespace DealerAPI.Controllers
             var token = new JwtSecurityToken(
                 claims: claims,
 
-                expires: DateTime.UtcNow.AddHours(2),
+                expires: DateTime.UtcNow.AddHours(8),
                 audience: "http://localhost:5137",
                 signingCredentials: cred
                 );
