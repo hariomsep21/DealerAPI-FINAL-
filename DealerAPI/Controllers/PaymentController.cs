@@ -165,10 +165,18 @@ namespace MyAppAPI.Controllers
             {
                 _logger.LogInformation("Getting Payment Status");
 
-                var currentDate = DateTime.UtcNow;
+                var userIdString = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
-                var paymentStatusList = await _db.Payment
+                if (int.TryParse(userIdString, out int userId))
+                {
+                    var currentDate = DateTime.UtcNow;
+
+                    var userCars = await _db.Cars.Where(c => c.UserId == userId).ToListAsync();
+                    var carIds = userCars.Select(car => car.CarId).ToList();
+
+                    var paymentStatusList = await _db.Payment
                     .Where(p => p.PaymentStatus != null)
+                       .Where(p => carIds.Contains(p.CarId))
                     .Include(p => p.Car)
                     .ToListAsync();
 
@@ -183,6 +191,12 @@ namespace MyAppAPI.Controllers
                 }).ToList();
 
                 return Ok(paymentHistoryDtos);
+                }
+                else
+                {
+                    // Handle the case where the user ID from the claim cannot be parsed as an integer
+                    return BadRequest("Invalid user ID");
+                }
             }
             catch (Exception ex)
             {

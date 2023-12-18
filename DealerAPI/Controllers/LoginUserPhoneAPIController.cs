@@ -194,7 +194,7 @@ namespace DealerAPI.Controllers
             var refreshToken = new RefreshToken()
             {
                 Token = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64)),
-                Expires = DateTime.Now.AddDays(7),
+                Expires = DateTime.Now.AddDays(30),
                 Created = DateTime.UtcNow
             };
             return refreshToken;
@@ -234,7 +234,7 @@ namespace DealerAPI.Controllers
             var token = new JwtSecurityToken(
                 claims: claims,
 
-                expires: DateTime.UtcNow.AddHours(8),
+                expires: DateTime.UtcNow.AddDays(30),
                 audience: "http://localhost:5137",
                 signingCredentials: cred
                 );
@@ -263,6 +263,8 @@ namespace DealerAPI.Controllers
                     {
                         // Invalidate the refresh token by setting it to null or an empty string
                         user.RefreshToken = null;
+                        user.TokenCreated = DateTime.MinValue;
+                        user.TokenExpires = DateTime.MinValue;
                         // You might also want to update TokenCreated and TokenExpires here if applicable
 
                         await _db.SaveChangesAsync();
