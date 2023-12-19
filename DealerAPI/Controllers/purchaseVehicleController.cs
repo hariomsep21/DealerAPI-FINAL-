@@ -5,6 +5,7 @@ using Dealer.Model.DTO;
 using Dealer.Model;
 using DealerAPI.Data;
 using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
 
 namespace MyAppAPI.Controllers
 {
@@ -28,9 +29,19 @@ namespace MyAppAPI.Controllers
             try
             {
                 _logger.LogInformation("Getting Cars with Status");
+                var userIdString = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
-                var carsWithStatus = await _db.Cars
+                if (int.TryParse(userIdString, out int userId))
+                {
+                    var currentDate = DateTime.UtcNow;
+
+                    var userCars = await _db.Cars.Where(c => c.UserId == userId).ToListAsync();
+                    var carIds = userCars.Select(car => car.CarId).ToList();
+
+
+                    var carsWithStatus = await _db.Cars
                     .Where(c => c.vehiclerecords.Any()) // Filter out cars without vehicle records
+                    .Where(c => carIds.Contains(c.CarId))
                     .Include(c => c.vehiclerecords)
                     .Select(c => new CarStatusDto
                     {
@@ -45,7 +56,13 @@ namespace MyAppAPI.Controllers
                     })
                     .ToListAsync();
 
-                return Ok(carsWithStatus);
+                    return Ok(carsWithStatus);
+                }
+                else
+                {
+                    // Handle the case where the user ID from the claim cannot be parsed as an integer
+                    return BadRequest("Invalid user ID");
+                }
             }
             catch (Exception ex)
             {
