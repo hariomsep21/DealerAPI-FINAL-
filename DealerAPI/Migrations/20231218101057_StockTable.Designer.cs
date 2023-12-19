@@ -4,6 +4,7 @@ using DealerAPI.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace DealerAPI.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20231218101057_StockTable")]
+    partial class StockTable
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -627,32 +630,6 @@ namespace DealerAPI.Migrations
                     b.ToTable("Statetbl");
                 });
 
-            modelBuilder.Entity("DealerAPI.Models.StockAddress", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("Address")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("AddressType")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<int>("IdU")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("IdU");
-
-                    b.ToTable("RegisterAddresses");
-                });
-
             modelBuilder.Entity("DealerAPI.Models.StockAudit_Purpose", b =>
                 {
                     b.Property<int>("Id")
@@ -902,17 +879,6 @@ namespace DealerAPI.Migrations
                         .IsRequired();
 
                     b.Navigation("UserInfos");
-                });
-
-            modelBuilder.Entity("DealerAPI.Models.StockAddress", b =>
-                {
-                    b.HasOne("DealerAPI.Models.UserInfo", "User")
-                        .WithMany()
-                        .HasForeignKey("IdU")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("DealerAPI.Models.UserInfo", b =>

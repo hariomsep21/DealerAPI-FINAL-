@@ -34,6 +34,7 @@ namespace DealerAPI.Data
         public DbSet<ProcDetails> procDetails { get; set; }
         public DbSet<StockAudit> StockAudits { get; set; }
 
-       
+        public DbSet<StockAddress> RegisterAddresses { get; set; }
+
     }
 }

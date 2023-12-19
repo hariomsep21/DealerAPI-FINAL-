@@ -6,6 +6,7 @@ using Dealer.Model.DTO;
 using DealerAPI.Data;
 using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
+using DealerAPI.Models.DTO;
 
 namespace MyAppAPI.Controllers
 {
@@ -196,5 +197,40 @@ namespace MyAppAPI.Controllers
                 return StatusCode(500, "Internal Server Error");
             }
         }
+
+        [HttpGet("addresses")]
+        [Authorize]
+        public async Task<ActionResult<IEnumerable<AddressDto>>> GetUserAddresses()
+        {
+            try
+            {
+                var userIdString = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+                if (int.TryParse(userIdString, out int userId))
+                {
+                    var userAddresses = await _db.RegisterAddresses
+                        .Where(a => a.IdU == userId) // Assuming UserId is a property in your Address entity
+                        .Select(a => new AddressDto
+                        {
+                            Id = a.Id,
+                            Address = a.Address,
+                            AddressType = a.AddressType // Assuming AddressType is a property in your Address entity
+                        })
+                        .ToListAsync();
+
+                    return Ok(userAddresses);
+                }
+                else
+                {
+                    return BadRequest("Invalid user ID");
+                }
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Error retrieving user addresses: {ex.Message}");
+            }
+        }
+
+
     }
 }
