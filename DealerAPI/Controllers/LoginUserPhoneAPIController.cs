@@ -66,7 +66,7 @@ namespace DealerAPI.Controllers
 
 
 
-      
+
         [HttpPost("generateotp")]
         public IActionResult GenerateOTP(string phoneNumber)
         {
@@ -146,6 +146,7 @@ namespace DealerAPI.Controllers
         //Verify
 
         [HttpPost("verifyotp")]
+
         public IActionResult VerifyOTP(string phoneNumber, int enteredOTP)
         {
             if (string.IsNullOrEmpty(phoneNumber) || enteredOTP == null)
@@ -168,17 +169,27 @@ namespace DealerAPI.Controllers
                 user.OTP = null;
                 user.OTPExpiry = DateTime.MinValue;
 
-                _db.SaveChanges();
+                // Check if the user is active before generating the token
+                if (user.Active)
+                {
+                    _db.SaveChanges();
 
-                // Generate a token for successful login
-                string token = CreateToken(user);
+                    // Generate a token for successful login
+                    string token = CreateToken(user);
 
-                var refreshToken = GenerateRefreshToken();
-                SetRefreshToken(refreshToken, user);
-                // Perform actions for successful login
-                // You can return user information, generate a token, or set session information here
+                    var refreshToken = GenerateRefreshToken();
+                    SetRefreshToken(refreshToken, user);
 
-                return Ok(token); // Modify this as needed
+                    return Ok(token); // Return token for an active user
+                }
+                else
+                {
+                    user.OTP = null;
+                    user.OTPExpiry = DateTime.MinValue;
+
+                    _db.SaveChanges();
+                    return BadRequest("User is not active. Token cannot be generated.");
+                }
             }
 
             user.OTP = null;
@@ -186,8 +197,8 @@ namespace DealerAPI.Controllers
 
             _db.SaveChanges();
             return BadRequest("Invalid OTP or OTP has expired");
-
         }
+
 
         private RefreshToken GenerateRefreshToken()
         {
@@ -361,6 +372,7 @@ namespace DealerAPI.Controllers
 
         }
         [HttpPost("AdditionalDetails")]
+
         public async Task<IActionResult> AddAdditionalUserDetails([FromBody] UserAdditionalDetailsDto additionalDetails, string phone)
         {
             try
@@ -382,17 +394,27 @@ namespace DealerAPI.Controllers
                 existingUser.UserEmail = additionalDetails.UserEmail;
                 existingUser.SId = additionalDetails.SId;
 
-                // Save changes to the database
-                await _db.SaveChangesAsync();
-                string token = CreateToken(existingUser);
+                // Check if the user is active before generating the token
+                if (existingUser.Active)
+                {
+                    // Save changes to the database
+                    await _db.SaveChangesAsync();
 
-                var refreshToken = GenerateRefreshToken();
-                SetRefreshToken(refreshToken, existingUser);
-                // Perform actions for successful login
-                // You can return user information, generate a token, or set session information here
+                    string token = CreateToken(existingUser);
 
-                return Ok(token); // Modify this as
-               
+                    var refreshToken = GenerateRefreshToken();
+                    SetRefreshToken(refreshToken, existingUser);
+
+                    // Return the token for an active user
+                    return Ok(token);
+                }
+                else
+                {
+                    // Save changes to the database without generating a token
+                    await _db.SaveChangesAsync();
+
+                    return Ok("User details updated but token not generated because the user is not active.");
+                }
             }
             catch (Exception ex)
             {
@@ -401,6 +423,14 @@ namespace DealerAPI.Controllers
                 return StatusCode(500, "An error occurred while saving data");
             }
         }
+
+
+
+
+
+
+
+
 
 
         [HttpPost("verifyotpSignup")]
@@ -439,5 +469,42 @@ namespace DealerAPI.Controllers
             return BadRequest("Invalid OTP or OTP has expired");
 
         }
+
+
+
+
+
+
+
+
+
+
+
+        [HttpGet("userstatus")]
+        public IActionResult GetUserStatus(string phoneNumber)
+        {
+            if (string.IsNullOrEmpty(phoneNumber))
+            {
+                return BadRequest("Phone number is required to get user status.");
+            }
+
+            // Check if the user with the given phone number exists in the database
+            var user = _db.Userstbl.FirstOrDefault(u => u.Phone == phoneNumber);
+
+            if (user == null)
+            {
+                return NotFound("User not found.");
+            }
+
+            // Create a UserStatusDTO object to return active and rejected status
+            var userStatus = new UserStatusDTO
+            {
+                Active = user.Active,
+                Rejected = user.Rejected
+            };
+
+            return Ok(userStatus);
+        }
+
     }
 }
