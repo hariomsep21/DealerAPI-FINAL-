@@ -24,6 +24,8 @@ namespace DealerAPI.Models
 
         [ForeignKey("SId")]
         public virtual State State { get; set; }
+        public bool Active { get; set; }    
+        public bool Rejected { get; set; }
 
 
         
